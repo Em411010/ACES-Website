@@ -1,0 +1,188 @@
+﻿@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: 'Space Grotesk Variable', system-ui, sans-serif;
+    --font-sans: 'Inter Variable', system-ui, sans-serif;
+
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* ACES custom colors for direct use */
+    --color-gold: #D4A017;
+    --color-gold-light: #F5D370;
+    --color-gold-dark: #B8860B;
+    --color-navy: #0F1B2D;
+    --color-navy-light: #1E3A5F;
+    --color-cyan: #00BCD4;
+    --color-cyan-light: #4DD0E1;
+    --color-cyan-glow: rgba(0, 188, 212, 0.3);
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+}
+
+/* ==========================================
+   ACES LIGHT THEME (Default) 
+   Gold primary, Navy text, Cyan accents
+   ========================================== */
+:root {
+    --background: #F8FAFC;
+    --foreground: #0F1B2D;
+    --card: #FFFFFF;
+    --card-foreground: #0F1B2D;
+    --popover: #FFFFFF;
+    --popover-foreground: #0F1B2D;
+    --primary: #D4A017;
+    --primary-foreground: #0F1B2D;
+    --secondary: #F1F5F9;
+    --secondary-foreground: #0F1B2D;
+    --muted: #F1F5F9;
+    --muted-foreground: #64748B;
+    --accent: #00BCD4;
+    --accent-foreground: #FFFFFF;
+    --destructive: #EF4444;
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: #D4A017;
+    --chart-1: #D4A017;
+    --chart-2: #00BCD4;
+    --chart-3: #1E3A5F;
+    --chart-4: #F5D370;
+    --chart-5: #10B981;
+    --radius: 0.625rem;
+
+    /* Sidebar: Dark navy */
+    --sidebar: #0F1B2D;
+    --sidebar-foreground: #F8FAFC;
+    --sidebar-primary: #D4A017;
+    --sidebar-primary-foreground: #0F1B2D;
+    --sidebar-accent: #1E3A5F;
+    --sidebar-accent-foreground: #F8FAFC;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-ring: #D4A017;
+}
+
+/* ==========================================
+   ACES DARK THEME
+   Deep navy background, Gold + Cyan accents
+   ========================================== */
+.dark {
+    --background: #0A1120;
+    --foreground: #F1F5F9;
+    --card: #0F1B2D;
+    --card-foreground: #F1F5F9;
+    --popover: #0F1B2D;
+    --popover-foreground: #F1F5F9;
+    --primary: #F5D370;
+    --primary-foreground: #0F1B2D;
+    --secondary: #1E3A5F;
+    --secondary-foreground: #F1F5F9;
+    --muted: #1E3A5F;
+    --muted-foreground: #94A3B8;
+    --accent: #4DD0E1;
+    --accent-foreground: #0F1B2D;
+    --destructive: #F87171;
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #F5D370;
+    --chart-1: #F5D370;
+    --chart-2: #4DD0E1;
+    --chart-3: #D4A017;
+    --chart-4: #00BCD4;
+    --chart-5: #34D399;
+    --sidebar: #060D18;
+    --sidebar-foreground: #F1F5F9;
+    --sidebar-primary: #F5D370;
+    --sidebar-primary-foreground: #0F1B2D;
+    --sidebar-accent: #1E3A5F;
+    --sidebar-accent-foreground: #F1F5F9;
+    --sidebar-border: rgba(255, 255, 255, 0.06);
+    --sidebar-ring: #F5D370;
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+    html {
+        @apply font-sans antialiased;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-heading);
+    }
+}
+
+/* ==========================================
+   ACES Custom Utilities
+   Circuit-board aesthetic effects
+   ========================================== */
+@layer utilities {
+    .glow-cyan {
+        box-shadow: 0 0 15px rgba(0, 188, 212, 0.25), 0 0 30px rgba(0, 188, 212, 0.1);
+    }
+    .glow-gold {
+        box-shadow: 0 0 15px rgba(212, 160, 23, 0.25), 0 0 30px rgba(212, 160, 23, 0.1);
+    }
+    .glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .dark .glass {
+        background: rgba(15, 27, 45, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .circuit-border {
+        border-image: repeating-linear-gradient(
+            90deg,
+            #00BCD4 0px,
+            #00BCD4 4px,
+            transparent 4px,
+            transparent 8px
+        ) 1;
+    }
+}
