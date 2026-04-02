@@ -11,6 +11,10 @@ import ChainOfCommand from "@/pages/ChainOfCommand";
 import DigitalID from "@/pages/DigitalID";
 import RoleManager from "@/pages/RoleManager";
 import MemberDirectory from "@/pages/MemberDirectory";
+import MemberProfile from "@/pages/MemberProfile";
+import Activities from "@/pages/Activities";
+import ActivityDetail from "@/pages/ActivityDetail";
+import AuditTrail from "@/pages/AuditTrail";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -43,10 +47,14 @@ function App() {
               <Route path="/billboard" element={<Billboard />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/activities/:id" element={<ActivityDetail />} />
               <Route path="/chain" element={<ChainOfCommand />} />
               <Route path="/id" element={<DigitalID />} />
               <Route path="/admin/roles" element={<RoleManager />} />
               <Route path="/admin/members" element={<MemberDirectory />} />
+              <Route path="/admin/audit" element={<AuditTrail />} />
+              <Route path="/members/:id" element={<MemberProfile />} />
             </Route>
           </Routes>
         </TooltipProvider>

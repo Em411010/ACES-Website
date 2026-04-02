@@ -6,18 +6,26 @@ import { cn } from "@/lib/utils";
 
 export function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+    <div className="min-h-screen">
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
       <div
         className={cn(
           "transition-all duration-300",
-          collapsed ? "ml-[68px]" : "ml-64"
+          "md:ml-[68px] lg:ml-64",
+          collapsed ? "lg:ml-[68px]" : "lg:ml-64",
+          !collapsed ? "md:ml-64" : "md:ml-[68px]"
         )}
       >
-        <TopBar />
-        <main className="p-6">
+        <TopBar onMobileMenuToggle={() => setMobileOpen(true)} />
+        <main className="p-4 md:p-6">
           <Outlet />
         </main>
       </div>

@@ -3,6 +3,7 @@ import {
   KanbanSquare,
   Megaphone,
   CalendarDays,
+  CalendarCheck,
   TrendingUp,
   Clock,
   AlertCircle,
@@ -15,15 +16,44 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CircuitPattern } from "@/components/ui/circuit-pattern";
-import {
-  currentUser,
-  currentRole,
-  mockAnnouncements,
-  mockTasks,
-  mockUsers,
-  getUserById,
-  getRoleById,
-} from "@/data/mock";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { announcementsApi, eventsApi, tasksApi, usersApi, activitiesApi } from "@/services/api";
+import type { Announcement, EventItem, Task, User, Role } from "@/types";
+
+const DEFAULT_EVENT = "General";
+
+function getRole(user: User | null): Role | null {
+  if (!user) return null;
+  return typeof user.roleId === "object" ? (user.roleId as Role) : null;
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase();
+}
+
+function getTaskEvent(task: Task) {
+  const value = task.eventCluster?.trim();
+  return value && value.length > 0 ? value : DEFAULT_EVENT;
+}
+
+function formatEventDateRange(eventTasks: Task[]) {
+  if (eventTasks.length === 0) return "No task deadlines yet";
+
+  const sorted = [...eventTasks].sort(
+    (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+  );
+  const first = new Date(sorted[0].deadline);
+  const last = new Date(sorted[sorted.length - 1].deadline);
+
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) {
+    return "No task deadlines yet";
+  }
+
+  const firstLabel = first.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  const lastLabel = last.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  return firstLabel === lastLabel ? firstLabel : `${firstLabel} - ${lastLabel}`;
+}
 
 function StatCard({
   label,
@@ -65,15 +95,83 @@ function StatCard({
 
 export default function Dashboard() {
   const { user, dismissProfileUpdate } = useAuth();
-  const totalTasks = mockTasks.length;
-  const doneTasks = mockTasks.filter((t) => t.status === "done").length;
-  const taskProgress = Math.round((doneTasks / totalTasks) * 100);
-  const unreadAnnouncements = mockAnnouncements.filter(
-    (a) => a.isMustRead && !a.acknowledgedBy.includes(currentUser._id)
+  const navigate = useNavigate();
+  const role = getRole(user as unknown as User);
+
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<string>(DEFAULT_EVENT);
+
+  async function loadDashboardData() {
+    try {
+      const [announcementData, taskData, usersData, eventData] = await Promise.all([
+        announcementsApi.getAll(),
+        tasksApi.getAll(),
+        usersApi.getAll(),
+        eventsApi.getAll(),
+      ]);
+
+      setAnnouncements(announcementData);
+      setTasks(taskData);
+      setTotalMembers(usersData.length);
+      setEvents(eventData);
+    } catch {
+      // Keep previous dashboard values if one request fails.
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboardData();
+
+    const handleWindowFocus = () => {
+      void loadDashboardData();
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, []);
+
+  const unreadAnnouncements = announcements.filter(
+    (a) => a.isMustRead && !a.acknowledgedBy.includes(user?._id ?? "")
   ).length;
 
+  const eventNames = [
+    DEFAULT_EVENT,
+    ...Array.from(
+      new Set([
+        ...tasks.map((t) => getTaskEvent(t)).filter((e) => e !== DEFAULT_EVENT),
+        ...events.map((e) => e.name).filter((e) => e !== DEFAULT_EVENT),
+      ])
+    ),
+  ];
+
+  useEffect(() => {
+    if (!eventNames.includes(selectedEvent)) {
+      setSelectedEvent(DEFAULT_EVENT);
+    }
+  }, [selectedEvent, eventNames]);
+
+  const selectedEventTasks = tasks.filter((t) => getTaskEvent(t) === selectedEvent);
+  const selectedTotalTasks = selectedEventTasks.length;
+  const selectedDoneTasks = selectedEventTasks.filter((t) => t.status === "done").length;
+  const selectedTaskProgress = selectedTotalTasks
+    ? Math.round((selectedDoneTasks / selectedTotalTasks) * 100)
+    : 0;
+  const eventDateRange = formatEventDateRange(selectedEventTasks);
+  const selectedStatusCount = {
+    todo: selectedEventTasks.filter((t) => t.status === "todo").length,
+    inProgress: selectedEventTasks.filter((t) => t.status === "in-progress").length,
+    review: selectedEventTasks.filter((t) => t.status === "review").length,
+    done: selectedEventTasks.filter((t) => t.status === "done").length,
+  };
+
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 w-full">
       {/* Profile Update Pending Banner */}
       {user?.profileUpdatePending && (
         <div className="flex items-center justify-between gap-4 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3">
@@ -96,33 +194,32 @@ export default function Dashboard() {
 
       {/* Welcome Banner */}
       <Card className="relative overflow-hidden border-gold/20 bg-gradient-to-r from-navy via-navy-light to-navy">
-        <CardContent className="p-6 relative z-10">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14 border-2 border-gold/50">
-              <AvatarFallback className="bg-gold/20 text-gold text-lg font-bold font-heading">
-                {currentUser.fullName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
+        <CardContent className="p-4 md:p-6 relative z-10">
+          <div className="flex items-center gap-3 md:gap-4">
+            <Avatar className="h-11 w-11 md:h-14 md:w-14 border-2 border-gold/50">
+              <AvatarFallback className="bg-gold/20 text-gold text-base md:text-lg font-bold font-heading">
+                {user?.fullName ? getInitials(user.fullName) : "?"}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-gold/70 text-sm">Welcome back,</p>
-              <h2 className="text-2xl font-bold font-heading text-white">
-                {currentUser.fullName}
+              <p className="text-gold/70 text-xs md:text-sm">Welcome back,</p>
+              <h2 className="text-xl md:text-2xl font-bold font-heading text-white">
+                {user?.fullName}
               </h2>
               <div className="flex items-center gap-2 mt-1">
-                <Badge
-                  className="text-xs font-semibold border-0"
-                  style={{
-                    backgroundColor: `${currentRole.color}30`,
-                    color: currentRole.color,
-                  }}
-                >
-                  {currentRole.name}
-                </Badge>
+                {role && (
+                  <Badge
+                    className="text-xs font-semibold border-0"
+                    style={{
+                      backgroundColor: `${role.color}30`,
+                      color: role.color,
+                    }}
+                  >
+                    {role.name}
+                  </Badge>
+                )}
                 <span className="text-white/40 text-xs">
-                  {currentUser.studentNumber} · Year {currentUser.yearLevel}
+                  {user?.studentNumber} · Year {user?.yearLevel}
                 </span>
               </div>
             </div>
@@ -133,30 +230,10 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Members"
-          value={mockUsers.length}
-          icon={Users}
-          accent="cyan"
-        />
-        <StatCard
-          label="Active Tasks"
-          value={mockTasks.filter((t) => t.status !== "done").length}
-          icon={KanbanSquare}
-          accent="gold"
-        />
-        <StatCard
-          label="Announcements"
-          value={mockAnnouncements.length}
-          icon={Megaphone}
-          accent="success"
-        />
-        <StatCard
-          label="Unread Must-Read"
-          value={unreadAnnouncements}
-          icon={AlertCircle}
-          accent="warning"
-        />
+        <StatCard label="Total Members" value={totalMembers} icon={Users} accent="cyan" />
+        <StatCard label="Active Tasks" value={tasks.filter((t) => t.status !== "done").length} icon={KanbanSquare} accent="gold" />
+        <StatCard label="Announcements" value={announcements.length} icon={Megaphone} accent="success" />
+        <StatCard label="Unread Must-Read" value={unreadAnnouncements} icon={AlertCircle} accent="warning" />
       </div>
 
       {/* Two-Column Section */}
@@ -170,12 +247,19 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockAnnouncements.map((announcement) => {
-              const author = getUserById(announcement.authorId);
-              const authorRole = author ? getRoleById(author.roleId) : undefined;
+            {announcements.map((announcement) => {
+              const author = typeof announcement.authorId === "object"
+                ? (announcement.authorId as User)
+                : null;
+              const authorRole = author ? getRole(author) : null;
               return (
                 <div
                   key={announcement._id}
+                  onClick={() =>
+                    navigate("/billboard", {
+                      state: { selectedAnnouncementId: announcement._id },
+                    })
+                  }
                   className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-cyan/30 hover:bg-accent/5 transition-all duration-200 cursor-pointer group"
                 >
                   <Avatar className="h-8 w-8 shrink-0 mt-0.5">
@@ -186,10 +270,7 @@ export default function Dashboard() {
                         color: authorRole?.color,
                       }}
                     >
-                      {author?.fullName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                      {author?.fullName ? getInitials(author.fullName) : "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
@@ -231,46 +312,40 @@ export default function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base font-heading">
               <TrendingUp size={18} className="text-gold" />
-              Engineering Week 2026
+              {selectedEvent}
             </CardTitle>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {eventNames.map((eventName) => (
+                <button
+                  key={eventName}
+                  onClick={() => setSelectedEvent(eventName)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+                    selectedEvent === eventName
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-input text-muted-foreground hover:bg-accent/40"
+                  }`}
+                >
+                  {eventName === DEFAULT_EVENT ? `${eventName} (Default)` : eventName}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Progress Ring */}
             <div className="flex items-center gap-4">
               <div className="relative w-20 h-20 shrink-0">
                 <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="34"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="34"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    strokeDasharray={`${taskProgress * 2.136} 213.6`}
-                    strokeLinecap="round"
-                    className="text-gold"
-                  />
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6" className="text-muted" />
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6"
+                    strokeDasharray={`${selectedTaskProgress * 2.136} 213.6`} strokeLinecap="round" className="text-gold" />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold font-heading">{taskProgress}%</span>
+                  <span className="text-lg font-bold font-heading">{selectedTaskProgress}%</span>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium">
-                  {doneTasks} of {totalTasks} tasks done
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  April 14-18, 2026
-                </p>
+                <p className="text-sm font-medium">{selectedDoneTasks} of {selectedTotalTasks} tasks done</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{eventDateRange}</p>
               </div>
             </div>
 
@@ -282,7 +357,14 @@ export default function Dashboard() {
                 { label: "Review", status: "review" as const, color: "bg-warning" },
                 { label: "Done", status: "done" as const, color: "bg-success" },
               ].map(({ label, status, color }) => {
-                const count = mockTasks.filter((t) => t.status === status).length;
+                const count =
+                  status === "todo"
+                    ? selectedStatusCount.todo
+                    : status === "in-progress"
+                      ? selectedStatusCount.inProgress
+                      : status === "review"
+                        ? selectedStatusCount.review
+                        : selectedStatusCount.done;
                 return (
                   <div key={status} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
@@ -295,14 +377,14 @@ export default function Dashboard() {
               })}
             </div>
 
-            <Progress value={taskProgress} className="h-2" />
+            <Progress value={selectedTaskProgress} className="h-2" />
 
             {/* Upcoming Deadlines */}
             <div className="pt-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Upcoming Deadlines
               </p>
-              {mockTasks
+              {selectedEventTasks
                 .filter((t) => t.status !== "done")
                 .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
                 .slice(0, 3)
@@ -311,10 +393,7 @@ export default function Dashboard() {
                     (new Date(task.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                   );
                   return (
-                    <div
-                      key={task._id}
-                      className="flex items-center justify-between py-1.5 text-sm"
-                    >
+                    <div key={task._id} className="flex items-center justify-between py-1.5 text-sm">
                       <span className="truncate flex-1 mr-2">{task.title}</span>
                       <Badge
                         variant="outline"
@@ -332,10 +411,67 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
+              {selectedEventTasks.filter((t) => t.status !== "done").length === 0 && (
+                <p className="text-xs text-muted-foreground">No upcoming deadlines for this event.</p>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Attendance History */}
+      <AttendanceHistory userId={user?._id} />
     </div>
+  );
+}
+
+/* ── Attendance History widget ── */
+function AttendanceHistory({ userId }: { userId?: string }) {
+  const navigate = useNavigate();
+  const [records, setRecords] = useState<
+    { activityId: string; activityName: string; venue: string; dateTime: string; markedAt: string; method: string }[]
+  >([]);
+
+  useEffect(() => {
+    if (userId) {
+      activitiesApi.userAttendance(userId).then(setRecords).catch(() => {});
+    }
+  }, [userId]);
+
+  if (records.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <CalendarCheck className="h-4 w-4 text-primary" />
+          My Attendance
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y max-h-64 overflow-y-auto">
+          {records.slice(0, 10).map((r) => (
+            <div
+              key={r.activityId}
+              className="flex items-center justify-between px-4 md:px-6 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors"
+              onClick={() => navigate(`/activities/${r.activityId}`)}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{r.activityName}</p>
+                <p className="text-xs text-muted-foreground">{r.venue}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <Badge variant="outline" className="text-[10px]">
+                  {r.method === "self-mark" ? "Self" : "QR"}
+                </Badge>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {new Date(r.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

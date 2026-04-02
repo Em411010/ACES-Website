@@ -77,6 +77,8 @@ export const mockUsers: User[] = [
   {
     _id: "u1",
     email: "chairman@bcp.edu.ph",
+    firstName: "Juan",
+    lastName: "Dela Cruz",
     fullName: "Juan Dela Cruz",
     studentNumber: "2023-00001",
     yearLevel: 4,
@@ -87,6 +89,8 @@ export const mockUsers: User[] = [
   {
     _id: "u2",
     email: "vice@bcp.edu.ph",
+    firstName: "Maria",
+    lastName: "Santos",
     fullName: "Maria Santos",
     studentNumber: "2023-00002",
     yearLevel: 4,
@@ -97,6 +101,8 @@ export const mockUsers: User[] = [
   {
     _id: "u3",
     email: "secretary@bcp.edu.ph",
+    firstName: "Ana",
+    lastName: "Reyes",
     fullName: "Ana Reyes",
     studentNumber: "2023-00003",
     yearLevel: 3,
@@ -107,6 +113,8 @@ export const mockUsers: User[] = [
   {
     _id: "u4",
     email: "treasurer@bcp.edu.ph",
+    firstName: "Carlos",
+    lastName: "Garcia",
     fullName: "Carlos Garcia",
     studentNumber: "2024-00010",
     yearLevel: 3,
@@ -117,6 +125,8 @@ export const mockUsers: User[] = [
   {
     _id: "u5",
     email: "member1@bcp.edu.ph",
+    firstName: "Paolo",
+    lastName: "Rivera",
     fullName: "Paolo Rivera",
     studentNumber: "2024-00015",
     yearLevel: 2,
@@ -127,6 +137,8 @@ export const mockUsers: User[] = [
   {
     _id: "u6",
     email: "member2@bcp.edu.ph",
+    firstName: "Rica",
+    lastName: "Mendoza",
     fullName: "Rica Mendoza",
     studentNumber: "2024-00020",
     yearLevel: 2,

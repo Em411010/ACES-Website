@@ -141,12 +141,31 @@
     --sidebar-ring: #F5D370;
 }
 
+@keyframes scan-line {
+  0%   { top: 4px; opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { top: calc(100% - 4px); opacity: 1; }
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite alternate;
+}
+
 @layer base {
     * {
         @apply border-border outline-ring/50;
     }
     body {
         @apply bg-background text-foreground;
+        background-image:
+            radial-gradient(ellipse 80% 50% at 50% -5%, rgba(212, 160, 23, 0.13) 0%, transparent 65%),
+            radial-gradient(ellipse 50% 40% at 95% 100%, rgba(0, 188, 212, 0.10) 0%, transparent 60%);
+        background-attachment: fixed;
+    }
+    html.dark body {
+        background-image:
+            radial-gradient(ellipse 80% 50% at 50% -5%, rgba(245, 211, 112, 0.12) 0%, transparent 65%),
+            radial-gradient(ellipse 50% 40% at 95% 100%, rgba(77, 208, 225, 0.10) 0%, transparent 60%);
     }
     html {
         @apply font-sans antialiased;

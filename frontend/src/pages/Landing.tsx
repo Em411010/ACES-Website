@@ -181,14 +181,14 @@ function OrgCard({ initials, name, position, accent = "slate" }: {
 }) {
   const s = accentStyles[accent];
   return (
-    <div className={`group flex flex-col items-center gap-3.5 rounded-2xl border ${s.ring} bg-white/[0.02] px-6 py-5 text-center shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-[1.04] hover:bg-white/[0.05] hover:shadow-xl w-44 sm:w-48`}>
+    <div className={`group flex flex-col items-center gap-2.5 rounded-2xl border ${s.ring} bg-white/[0.02] px-3 py-4 sm:px-6 sm:py-5 text-center shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-[1.04] hover:bg-white/[0.05] hover:shadow-xl w-24 sm:w-44 md:w-48`}>
       {/* Avatar placeholder */}
-      <div className={`flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 ${s.ring} ${s.bg} text-lg font-bold font-heading ${s.text} shadow-inner transition-transform duration-300 group-hover:scale-105`}>
+      <div className={`flex h-10 w-10 sm:h-[72px] sm:w-[72px] items-center justify-center rounded-full border-2 ${s.ring} ${s.bg} text-[11px] sm:text-lg font-bold font-heading ${s.text} shadow-inner transition-transform duration-300 group-hover:scale-105`}>
         {initials}
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-semibold text-white leading-snug">{name}</p>
-        <span className={`inline-block rounded-full px-3 py-1 text-[10px] font-medium leading-none ${s.badge}`}>
+        <p className="text-[10px] sm:text-sm font-semibold text-white leading-snug">{name}</p>
+        <span className={`inline-block rounded-full px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium leading-none ${s.badge}`}>
           {position}
         </span>
       </div>
@@ -198,7 +198,7 @@ function OrgCard({ initials, name, position, accent = "slate" }: {
 
 function OrgRow({ children, wrap = false }: { children: React.ReactNode; wrap?: boolean }) {
   return (
-    <div className={`flex ${wrap ? "flex-wrap" : ""} items-start justify-center gap-10 sm:gap-16`}>
+    <div className={`flex ${wrap ? "flex-wrap" : ""} items-start justify-center gap-3 sm:gap-10 sm:gap-16`}>
       {children}
     </div>
   );
@@ -224,6 +224,7 @@ export default function Landing() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pendingApprovalMsg, setPendingApprovalMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
 
   // OTP step
@@ -349,6 +350,14 @@ export default function Landing() {
     try {
       await verifyOtp(pendingId, code);
     } catch (err: unknown) {
+      if (err && typeof err === "object" && "pendingApproval" in err) {
+        // Registration succeeded but needs officer approval
+        const paErr = err as { message?: string };
+        setMode("login");
+        setError("");
+        setPendingApprovalMsg(paErr.message || "Your account is pending approval by an officer.");
+        return;
+      }
       if (err && typeof err === "object" && "response" in err) {
         const axiosErr = err as { response?: { data?: { error?: string } } };
         setError(axiosErr.response?.data?.error || "Verification failed");
@@ -456,7 +465,7 @@ export default function Landing() {
         </div>
 
         {/* Hero content */}
-        <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-12 px-6 lg:grid-cols-2 lg:gap-16">
+        <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-12 px-6 pt-8 lg:pt-0 lg:grid-cols-2 lg:gap-16">
           {/* Left — Branding */}
           <div className="flex flex-col items-center text-center lg:items-start lg:justify-center lg:text-left">
             <div className="relative mb-6">
@@ -564,6 +573,12 @@ export default function Landing() {
                   {error && (
                     <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                       {error}
+                    </div>
+                  )}
+
+                  {pendingApprovalMsg && (
+                    <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                      {pendingApprovalMsg}
                     </div>
                   )}
 

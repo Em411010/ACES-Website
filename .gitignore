@@ -2,3 +2,5 @@ node_modules
 .env
 dist
 .DS_Store
+# Don't ignore built frontend (served by backend in production)
+!backend/public

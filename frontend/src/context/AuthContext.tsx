@@ -18,6 +18,7 @@ interface User {
   section?: string;
   yearLevel?: number;
   avatar?: string;
+  digitalIDHash?: string;
   roleId?: {
     _id: string;
     name: string;
@@ -36,6 +37,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<string>; // returns pendingId
   verifyOtp: (pendingId: string, code: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   dismissProfileUpdate: () => Promise<void>;
   notifyProfileUpdate: () => Promise<void>;
 }
@@ -85,6 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function verifyOtp(pendingId: string, code: string) {
     const { data } = await api.post("/auth/verify-otp", { pendingId, code });
+    if (data.pendingApproval) {
+      // Registration successful but pending officer approval — don't log in
+      throw { pendingApproval: true, message: data.message };
+    }
     localStorage.setItem("accessToken", data.accessToken);
     setUser(data.user);
   }
@@ -104,8 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.post("/users/notify-profile-update");
   }
 
+  async function refreshUser() {
+    const res = await api.get("/auth/me");
+    setUser(res.data);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, logout, dismissProfileUpdate, notifyProfileUpdate }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, logout, refreshUser, dismissProfileUpdate, notifyProfileUpdate }}>
       {children}
     </AuthContext.Provider>
   );

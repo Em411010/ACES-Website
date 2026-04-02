@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     roleId: { type: mongoose.Schema.Types.ObjectId, ref: "Role" },
     digitalIDHash: { type: String, unique: true, sparse: true },
     avatar: { type: String, default: "" },
+    avatarPublicId: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
     // Semester profile-update request flag
     profileUpdatePending: { type: Boolean, default: false },

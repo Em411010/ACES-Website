@@ -2,6 +2,7 @@ const router = require("express").Router();
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const { authenticate, checkPerm } = require("../middleware/auth");
+const { audit } = require("../utils/auditLogger");
 
 // Scan QR code for attendance
 router.post("/scan", authenticate, checkPerm("SCAN_ATTENDANCE"), async (req, res) => {
@@ -30,6 +31,15 @@ router.post("/scan", authenticate, checkPerm("SCAN_ATTENDANCE"), async (req, res
     userId: user._id,
     eventName,
     scannedBy: req.user._id,
+  });
+
+  await audit(req, {
+    action: "SCAN_ATTENDANCE",
+    module: "ATTENDANCE",
+    targetType: "User",
+    targetId: user._id,
+    details: `Scanned QR attendance for ${user.fullName} at "${eventName}"`,
+    metadata: { eventName, scannedUserName: user.fullName },
   });
 
   res.status(201).json({

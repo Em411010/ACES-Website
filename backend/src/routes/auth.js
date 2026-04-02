@@ -6,6 +6,7 @@ const User = require("../models/User");
 const Role = require("../models/Role");
 const PendingRegistration = require("../models/PendingRegistration");
 const { sendOtpEmail } = require("../utils/mailer");
+const { audit } = require("../utils/auditLogger");
 
 /** Generate a cryptographically random 6-digit OTP string */
 function generateOtp() {
@@ -31,7 +32,7 @@ router.post("/login", async (req, res) => {
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ error: "Account is deactivated" });
+      return res.status(403).json({ error: "Your account is pending approval. Please wait for an officer to accept your registration." });
     }
 
     const accessToken = generateAccessToken(user._id);
@@ -42,6 +43,15 @@ router.post("/login", async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    await audit(req, {
+      action: "LOGIN",
+      module: "AUTH",
+      userId: user._id,
+      targetType: "User",
+      targetId: user._id,
+      details: `${user.fullName} logged in`,
     });
 
     res.json({ accessToken, user });
@@ -137,22 +147,25 @@ router.post("/verify-otp", async (req, res) => {
       section: section || "",
       yearLevel,
       roleId: memberRole ? memberRole._id : null,
+      isActive: false, // pending approval by Chairman / Vice-Chairmans
     });
     await user.save();
     await pending.deleteOne();
 
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+    await audit(req, {
+      action: "REGISTER",
+      module: "AUTH",
+      userId: user._id,
+      targetType: "User",
+      targetId: user._id,
+      details: `${user.fullName} registered (pending approval)`,
+      metadata: { email: user.email, studentNumber: user.studentNumber },
     });
 
-    const populated = await User.findById(user._id).populate("roleId");
-    res.status(201).json({ accessToken, user: populated });
+    res.status(201).json({
+      pendingApproval: true,
+      message: "Registration successful! Your account is pending approval by an officer.",
+    });
   } catch (err) {
     console.error("Verify OTP error:", err);
     res.status(500).json({ error: "Server error" });
@@ -213,180 +226,6 @@ router.get("/me", authenticate, async (req, res) => {
 });
 
 // ─── Logout ────────────────────────────────────────────
-router.post("/logout", (_req, res) => {
-  res.clearCookie("refreshToken");
-  res.json({ message: "Logged out" });
-});
-
-module.exports = router;
-
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase() }).populate("roleId");
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    if (!user.isActive) {
-      return res.status(403).json({ error: "Account is deactivated" });
-    }
-
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.json({ accessToken, user });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// ─── Local Register (creates Member role by default) ──
-router.post("/register", async (req, res) => {
-  try {
-    const { email, password, firstName, middleName, lastName, studentNumber, section } = req.body;
-    if (!email || !password || !firstName || !lastName || !studentNumber) {
-      return res.status(400).json({ error: "First name, last name, email, password, and student number are required" });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
-    }
-
-    const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) {
-      return res.status(409).json({ error: "Email already registered" });
-    }
-
-    const memberRole = await Role.findOne({ name: "Member", isEditable: false });
-
-    // Derive year level from first digit of section code (e.g. "11001" → year 1)
-    const yearLevel = section ? (parseInt(section[0]) || 1) : 1;
-    const fullName = [firstName.trim(), middleName?.trim(), lastName.trim()].filter(Boolean).join(" ");
-
-    const user = new User({
-      email,
-      password,
-      firstName: firstName.trim(),
-      middleName: (middleName || "").trim(),
-      lastName: lastName.trim(),
-      fullName,
-      studentNumber: studentNumber.trim(),
-      section: section || "",
-      yearLevel,
-      roleId: memberRole ? memberRole._id : null,
-    });
-    await user.save();
-
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    const populated = await User.findById(user._id).populate("roleId");
-    res.status(201).json({ accessToken, user: populated });
-  } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Google OAuth
-router.get(
-  "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: "/login" }),
-  (req, res) => {
-    const accessToken = generateAccessToken(req.user._id);
-    const refreshToken = generateRefreshToken(req.user._id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.redirect(`${process.env.CLIENT_URL}?token=${accessToken}`);
-  }
-);
-
-// Facebook OAuth
-router.get(
-  "/facebook",
-  passport.authenticate("facebook", { scope: ["email"] })
-);
-
-router.get(
-  "/facebook/callback",
-  passport.authenticate("facebook", { session: false, failureRedirect: "/login" }),
-  (req, res) => {
-    const accessToken = generateAccessToken(req.user._id);
-    const refreshToken = generateRefreshToken(req.user._id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.redirect(`${process.env.CLIENT_URL}?token=${accessToken}`);
-  }
-);
-
-// Refresh token
-router.post("/refresh", async (req, res) => {
-  const token = req.cookies?.refreshToken;
-  if (!token) return res.status(401).json({ error: "No refresh token" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.userId);
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: "User not found" });
-    }
-
-    const accessToken = generateAccessToken(user._id);
-    res.json({ accessToken });
-  } catch {
-    return res.status(401).json({ error: "Invalid refresh token" });
-  }
-});
-
-// Get current user
-router.get("/me", authenticate, async (req, res) => {
-  const user = await User.findById(req.user._id).populate("roleId");
-  res.json(user);
-});
-
-// Logout
 router.post("/logout", (_req, res) => {
   res.clearCookie("refreshToken");
   res.json({ message: "Logged out" });
