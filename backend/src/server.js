@@ -21,11 +21,7 @@ const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
 app.use(
   helmet({
     xFrameOptions: false,
-    contentSecurityPolicy: {
-      directives: {
-        frameAncestors: ["'self'", ...allowedOrigins],
-      },
-    },
+    contentSecurityPolicy: false,
   })
 );
 
@@ -67,14 +63,12 @@ app.use("/api/audit-logs", require("./routes/auditLogs"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/search", require("./routes/search"));
 
-// Serve frontend in production
-if (process.env.NODE_ENV === "production") {
-  const frontendPath = path.join(__dirname, "../public");
-  app.use(express.static(frontendPath));
-  app.get("/{*splat}", (_req, res) => {
-    res.sendFile(path.join(frontendPath, "index.html"));
-  });
-}
+// Serve frontend static files (production build)
+const frontendPath = path.join(__dirname, "../public");
+app.use(express.static(frontendPath));
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(frontendPath, "index.html"));
+});
 
 // Health check
 app.get("/api/health", (_req, res) => {
