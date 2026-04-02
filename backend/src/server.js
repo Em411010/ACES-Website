@@ -17,6 +17,14 @@ const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .filter(Boolean)
   .concat(["http://localhost:5174", "http://localhost:5175", "http://localhost:5176"]);
 
+const corsMiddleware = cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+});
+
 // Security
 app.use(
   helmet({
@@ -25,15 +33,8 @@ app.use(
   })
 );
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+// CORS applied only to API routes (not static files)
+app.use("/api", corsMiddleware);
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -66,13 +67,15 @@ app.use("/api/search", require("./routes/search"));
 // Serve frontend static files (production build)
 const frontendPath = path.join(__dirname, "../public");
 app.use(express.static(frontendPath));
-app.get("/{*splat}", (_req, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
-});
 
 // Health check
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// SPA fallback — must be last
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(frontendPath, "index.html"));
 });
 
 // Global error handler
